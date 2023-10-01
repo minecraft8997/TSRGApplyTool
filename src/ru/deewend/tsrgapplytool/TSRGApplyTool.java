@@ -1,7 +1,9 @@
 package ru.deewend.tsrgapplytool;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TSRGApplyTool {
@@ -73,6 +75,7 @@ public class TSRGApplyTool {
         System.exit(-1);
     }
 
+    @SuppressWarnings("CommentedOutCode")
     public void start() throws IOException {
         File tsrgFile = new File(projectDir + "/build/createMcpToSrg/output.tsrg");
         if (!tsrgFile.exists()) {
@@ -149,6 +152,7 @@ public class TSRGApplyTool {
 
         System.out.println("Resuming...");
         lineNumber = 0;
+        List<String> lines = new ArrayList<>();
         try (BufferedReader reader = reader(sourceFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -158,10 +162,54 @@ public class TSRGApplyTool {
                     int idx = line.indexOf("field_");
                     if (idx == -1) idx = line.indexOf("func_");
 
-                    System.out.println(line.charAt(idx));
+                    int end = getEndIndex(line, idx);
+                    String name = line.substring(idx, end);
+
+                    String value;
+                    if (fields.containsKey(name)) {
+                        value = fields.get(name);
+                    } else if (functions.containsKey(name)) {
+                        value = functions.get(name);
+                    } else {
+                        System.err.println("[WARN] " +
+                                "Could not deobfuscate \"" + name + "\". Skipping...");
+
+                        continue;
+                    }
+                    line = line.replace(name, value);
                 }
+
+                lines.add(line);
             }
         }
+
+        System.out.println("Writing changes...");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(sourceFile))) {
+            for (String line : lines) {
+                writer.write(line);
+                writer.write(System.lineSeparator());
+            }
+        }
+
+        System.out.println("Done!");
+        System.out.println();
+        System.out.println("McLord Discord: https://mclord.ru/discord");
+        System.out.println("McLord Forum: https://forum.mclord.ru");
+    }
+
+    private static int getEndIndex(String line, int idx) {
+        for ( ; idx < line.length(); idx++) {
+            char current = line.charAt(idx);
+
+            if (current == '_') continue;
+            if (current >= '0' && current <= '9') continue;
+            if (current >= 'a' && current <= 'z') continue;
+            if (current >= 'A' && current <= 'Z') continue;
+
+            return idx;
+        }
+
+        return line.length();
     }
 
     private static BufferedReader reader(File file) throws FileNotFoundException {
